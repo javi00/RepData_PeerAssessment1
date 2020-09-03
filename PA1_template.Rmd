@@ -1,25 +1,144 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+author: Javier Vallejos
 ---
 
-
 ## Loading and preprocessing the data
-
-
+```{r}
+# First load the libraries to work
+library(dplyr)
+library(lattice)
+library(tidyr)
+# 1. Unzip the file activity and read the dataset .csv
+rawdata <- read.table(unz("activity.zip", "activity.csv"),
+                   sep = ",", header = TRUE)
+# 2. Covert  the column Date to a date class
+rawdata$date <-  as.Date(rawdata$date,"%Y-%m-%d")
+# Remove the NA values of the dataset
+data <- na.omit(rawdata)
+````
 
 ## What is mean total number of steps taken per day?
+```{r}
+# 1. Calculate the total of steps
+StepsbyDay <- tapply(data$steps,data$date, sum)
 
+# 2. Histogram of the total number of steps taken each day
+hist(StepsbyDay, plot = TRUE,
+     xlab = "Steps by day", col = 4,
+     main = " Total number of steps taken each day")
+
+````
+
+```{r}
+# 3. Calculate and report the mean and median of the total number of steps taken per day
+# calculate mean 
+MeanbyDay <- tapply(data$steps,data$date, mean)
+print(data.frame(MeanbyDay))
+
+# calculate median
+MedianbyDay <- tapply(data$steps,data$date, median)
+print(data.frame(MedianbyDay))
+
+```
 
 
 ## What is the average daily activity pattern?
 
+```{r}
+# 1. Time series plot of the 5-minute interval (x-axis)
+#    and the average number of steps taken, averaged across
+#    all days (y-axis)
+# First calculate the mean of steps by interval with tapply
+Avgbyinterval <- tapply(data$steps,data$interval, mean)
+# plot with type "l"
+plot(as.numeric(names(Avgbyinterval)),
+     Avgbyinterval, type = "l",
+     main = "Average number of steps taken by 5 min",
+     xlab = "5 min interval",
+     ylab = "Averafe of steps")
+# 2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
 
+MaxSteps = floor(max(Avgbyinterval))
+print(MaxSteps)
+
+```
 
 ## Imputing missing values
+```{r}
+# 1. Calculate and report the total number of missing
+#    values in the dataset 
 
+totalNAs <- sum(is.na(rawdata))
+print(totalNAs)
 
+# 2. Devise a strategy for filling in all of the missing 
+#    values in the dataset
+#  Imputing the NAs with mean because there are complete days   #  with NAs
+
+i <- 1  # is a counter 
+for(n in 1:length(rawdata$steps))
+{
+    if(i == 288)  # the number of intervals
+    { i <- 1 }
+    
+    if(is.na(rawdata$steps[n]))
+    { rawdata$steps[n] <- round(Avgbyinterval[i]) }
+    i <- i +1
+}
+
+# 3. Create a new dataset that is equal to the original
+#    dataset but with the missing data filled in.
+
+     dataI <- rawdata   # new dataframe
+     
+# 4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day.
+     
+StepsbyDay <- tapply(dataI$steps,dataI$date, sum)
+
+hist(StepsbyDay, plot = TRUE,
+     xlab = "Steps by day", col = 3,
+     main = " Total number of steps taken each day")
+# Like we can see the histogram with imputed data is very similar than the first histogram    
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+# 1. Create a new factor variable in the dataset with
+#    two levels “weekday” and “weekend” indicating whether a 
+#    given date is a weekday or weekend day.
+# First I created a new column with weekdays
+dataI$week <- weekdays(dataI$date)
+
+# Second I select the weekdays and weekend and rename
+for(n in 1: length(dataI$week))
+{
+    if(dataI$week[n] == "sábado" | 
+       dataI$week[n] == "domingo")
+    {
+       dataI$week[n] <- "weekend"
+    }
+    else 
+    {
+       dataI$week[n] <- "weekday"
+    }
+}
+
+# calculate the mean by interval and weekdays/weekend
+days <- with(dataI, 
+             tapply(steps, list(interval, week),
+                    mean))
+# covert la days like a dataframe
+days <- data.frame(days)
+# here I created a new colum with the interval
+days$int <-as.numeric(row.names(days))
+
+# with gather I prepared the data to plot
+result <- gather(days,week,avg, weekday:weekend,
+                 convert = FALSE)
+# 2. Make a panel plot containing a time series plot 
+# a comparative plot  weekday vs weekend
+xyplot( avg ~ int | week,
+       data = result, layout = c(1, 2), type = "l")
+
+```
